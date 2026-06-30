@@ -20,6 +20,11 @@ export interface RadarStation {
   gifUrl: string;
   /** ISO timestamp of when this capture was taken. */
   updatedAt: string;
+  /**
+   * Absolute URL of this station's capture-history endpoint. Derived from the
+   * request origin at response time (not stored in index.json).
+   */
+  gifUrlHistory?: string;
 }
 
 /** Root manifest written to the data repo and served by /api/radar. */
