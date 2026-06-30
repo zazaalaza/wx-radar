@@ -9,11 +9,13 @@ export const revalidate = 0;
 
 const CACHE_HEADER = 'no-store, no-cache, must-revalidate';
 
-/** Attach the absolute self-link to this station's history endpoint. */
+/** Attach the absolute self-link to this station's history endpoint, keeping `updatedAt` last. */
 function withHistoryUrl(station: RadarStation, origin: string): RadarStation {
+  const { updatedAt, ...rest } = station;
   return {
-    ...station,
+    ...rest,
     gifUrlHistory: `${origin}/api/radar/history?code=${station.icao}`,
+    updatedAt,
   };
 }
 
