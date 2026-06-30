@@ -62,9 +62,19 @@ export default function Home() {
             className="group inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-medium uppercase tracking-[0.15em] text-white/80 transition hover:border-white/40 hover:bg-white/10 hover:text-white"
           >
             All stations
-            <span className="text-white/40 transition group-hover:translate-x-0.5 group-hover:text-white">
-              &#8599;
-            </span>
+            <svg
+              viewBox="0 0 24 24"
+              className="h-3.5 w-3.5 text-white/40 transition group-hover:text-white"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+            </svg>
           </a>
         </div>
       </header>
@@ -129,7 +139,7 @@ function StationCard({ station }: { station: RadarStation }) {
 
         <div className="flex items-center justify-between gap-2 font-mono text-[11px] text-white/45">
           <span className="truncate">{station.timezone}</span>
-          <div className="flex shrink-0 items-center gap-1">
+          <div className="flex shrink-0 items-center gap-3">
             <span>
               <span className="text-white/30">LAT</span> {fmtCoord(station.latitude)}{' '}
               <span className="text-white/30">LON</span> {fmtCoord(station.longitude)}
