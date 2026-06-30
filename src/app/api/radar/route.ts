@@ -3,8 +3,10 @@ import { readIndex } from '@/lib/index/read';
 import { getErrorMessage } from '@/lib/shared/errors';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
-const CACHE_HEADER = 'public, s-maxage=300, stale-while-revalidate=600';
+const CACHE_HEADER = 'no-store, no-cache, must-revalidate';
 
 /**
  * GET /api/radar            -> full index ({ updatedAt, seriesTs, stations[] })

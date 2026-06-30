@@ -26,7 +26,7 @@ export default function Home() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(API_PATH)
+    fetch(API_PATH, { cache: 'no-store' })
       .then(async (res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return (await res.json()) as RadarIndex;
