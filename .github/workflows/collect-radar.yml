@@ -1,9 +1,7 @@
 name: Collect Radar GIFs
 
 on:
-  schedule:
-    - cron: '*/30 * * * *' # every 30 min
-  workflow_dispatch: # manual trigger for testing
+  workflow_dispatch: # triggered externally by cron-job.org (and manual runs)
 
 concurrency:
   group: collect-radar
