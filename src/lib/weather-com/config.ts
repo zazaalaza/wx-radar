@@ -1,8 +1,8 @@
 /**
  * Configuration for the weather.com satradFcst radar archiver.
  *
- * The API key is the SUN_V3 client key used by weather.com's web maps. It must
- * be provided via the WEATHER_COM_API_KEY env var (GitHub Actions secret).
+ * The API key is the SUN_V3 client key used by weather.com's web maps. It is
+ * provided via the WEATHER_COM_API_KEY env var (GitHub Actions secret).
  */
 function requireApiKey(): string {
   const key = process.env.WEATHER_COM_API_KEY;
