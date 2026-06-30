@@ -120,41 +120,43 @@ function StationCard({ station }: { station: RadarStation }) {
             <span className="shrink-0 rounded-md bg-white/10 px-2 py-0.5 font-mono text-[11px] tracking-wider text-white/70">
               {station.icao}
             </span>
-            <span className="shrink-0 whitespace-nowrap font-mono text-[11px] text-white/45">
-              {formatLocalHM(station.startFrameUnixTimestamp, station.timezone)} &rarr;{' '}
-              {formatLocalHM(station.endFrameUnixTimestamp, station.timezone)}
-            </span>
           </div>
-          <a
-            href={`${API_PATH}?code=${station.icao}`}
-            target="_blank"
-            rel="noreferrer"
-            title="View raw response"
-            aria-label="View raw response"
-            className="-mr-1 shrink-0 rounded-md p-1.5 text-white/40 transition hover:bg-white/10 hover:text-sky-300"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-            </svg>
-          </a>
+          <span className="shrink-0 whitespace-nowrap font-mono text-[11px] text-white/45">
+            {formatLocalHM(station.startFrameUnixTimestamp, station.timezone)} &rarr;{' '}
+            {formatLocalHM(station.endFrameUnixTimestamp, station.timezone)}
+          </span>
         </div>
 
         <div className="flex items-center justify-between gap-2 font-mono text-[11px] text-white/45">
           <span className="truncate">{station.timezone}</span>
-          <span className="shrink-0">
-            <span className="text-white/30">LAT</span> {fmtCoord(station.latitude)}{' '}
-            <span className="text-white/30">LON</span> {fmtCoord(station.longitude)}
-          </span>
+          <div className="flex shrink-0 items-center gap-1">
+            <span>
+              <span className="text-white/30">LAT</span> {fmtCoord(station.latitude)}{' '}
+              <span className="text-white/30">LON</span> {fmtCoord(station.longitude)}
+            </span>
+            <a
+              href={`${API_PATH}?code=${station.icao}`}
+              target="_blank"
+              rel="noreferrer"
+              title="View raw response"
+              aria-label="View raw response"
+              className="-mr-1 rounded-md p-1 text-white/40 transition hover:bg-white/10 hover:text-sky-300"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                className="h-3.5 w-3.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+              </svg>
+            </a>
+          </div>
         </div>
       </div>
     </div>
