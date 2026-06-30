@@ -11,3 +11,15 @@ export const toDateKey = (t: number, timezone: string): string => {
   const comps = getLocalDateComponents(t, timezone);
   return `${comps.y}${String(comps.m + 1).padStart(2, '0')}${String(comps.d).padStart(2, '0')}`;
 };
+
+/**
+ * Expand a compact UTC capture stamp into a standard ISO string.
+ *   "20260630T163000Z" -> "2026-06-30T16:30:00Z"
+ * Returns the input unchanged if it does not match the expected format.
+ */
+export const compactUtcToIso = (datetime: string): string => {
+  const m = datetime.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/);
+  if (!m) return datetime;
+  const [, y, mo, d, h, min, s] = m;
+  return `${y}-${mo}-${d}T${h}:${min}:${s}Z`;
+};

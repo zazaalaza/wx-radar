@@ -143,8 +143,8 @@ export async function captureStation(station: Station, series: SatradSeries): Pr
       datetime,
       source: `${API_HOST}/v2/maps/dynamic`,
       location: {
-        station: folder,
         icaoCode: code,
+        name: station.name,
         geocode,
         latitude: station.lat,
         longitude: station.lon,
@@ -154,6 +154,8 @@ export async function captureStation(station: Station, series: SatradSeries): Pr
         map: MAP_STYLE,
         ts: series.ts,
         frameCount,
+        startFrameUnixTimestamp: series.fts[0],
+        endFrameUnixTimestamp: series.fts[frameCount - 1],
         frames: frameMeta,
       },
       gif: {

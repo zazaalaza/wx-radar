@@ -1,24 +1,10 @@
 import fs from 'fs';
 import { indexJsonPath } from '@/lib/shared/data-path';
+import { compactUtcToIso } from '@/lib/shared/time-utils';
 import { latestJsonPath } from '@/lib/weather-com/paths';
 import { STATIONS } from '@/lib/weather-stations/stations';
 import { LatestPointer } from '@/lib/weather-com/capture';
-
-export interface IndexStation {
-  name: string;
-  folder: string;
-  datetime: string;
-  date: string;
-  frameCount: number;
-  seriesTs: number;
-  gifUrl: string;
-}
-
-export interface RadarIndex {
-  updatedAt: string;
-  seriesTs: number | null;
-  stations: Record<string, IndexStation>;
-}
+import { RadarIndex, RadarStation } from '@/lib/index/types';
 
 function dataRepo(): { owner: string; repo: string; branch: string } {
   const repo = process.env.DATA_REPO ?? 'zazaalaza/wx-radar-data';
@@ -47,20 +33,23 @@ function readPointer(folder: string, code: string): LatestPointer | null {
  * Gives the UI and API a single file to read instead of one request per station.
  */
 export function updateIndexJson(seriesTs: number | null): RadarIndex {
-  const stations: Record<string, IndexStation> = {};
+  const stations: RadarStation[] = [];
 
   for (const station of STATIONS) {
     const pointer = readPointer(station.folder, station.code);
     if (!pointer) continue;
-    stations[station.code] = {
-      name: station.name,
-      folder: station.folder,
-      datetime: pointer.datetime,
-      date: pointer.date,
-      frameCount: pointer.frameCount,
+    stations.push({
+      icao: station.code,
+      location: station.name,
+      latitude: station.lat,
+      longitude: station.lon,
       seriesTs: pointer.ts,
+      startFrameUnixTimestamp: pointer.ftsFirst,
+      endFrameUnixTimestamp: pointer.ftsLast,
+      frameCount: pointer.frameCount,
       gifUrl: gifUrlFor(station.folder, station.code, pointer.date, pointer.datetime),
-    };
+      updatedAt: compactUtcToIso(pointer.datetime),
+    });
   }
 
   const index: RadarIndex = {
