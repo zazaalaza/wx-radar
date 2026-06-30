@@ -113,19 +113,17 @@ function StationCard({ station }: { station: RadarStation }) {
         <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/10" />
       </div>
 
-      <div className="flex flex-col gap-1.5 p-4">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <div className="flex items-baseline gap-2">
-              <h2 className="truncate text-base font-semibold tracking-tight">{station.location}</h2>
-              <span className="shrink-0 font-mono text-[11px] tracking-wider text-white/45">
-                {station.icao}
-              </span>
-            </div>
-            <p className="mt-0.5 font-mono text-[11px] text-white/45">
+      <div className="flex flex-col gap-2 p-4">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <h2 className="truncate text-base font-semibold tracking-tight">{station.location}</h2>
+            <span className="shrink-0 rounded-md bg-white/10 px-2 py-0.5 font-mono text-[11px] tracking-wider text-white/70">
+              {station.icao}
+            </span>
+            <span className="shrink-0 whitespace-nowrap font-mono text-[11px] text-white/45">
               {formatLocalHM(station.startFrameUnixTimestamp, station.timezone)} &rarr;{' '}
               {formatLocalHM(station.endFrameUnixTimestamp, station.timezone)}
-            </p>
+            </span>
           </div>
           <a
             href={`${API_PATH}?code=${station.icao}`}
@@ -133,7 +131,7 @@ function StationCard({ station }: { station: RadarStation }) {
             rel="noreferrer"
             title="View raw response"
             aria-label="View raw response"
-            className="-mr-1 -mt-1 shrink-0 rounded-md p-1.5 text-white/40 transition hover:bg-white/10 hover:text-sky-300"
+            className="-mr-1 shrink-0 rounded-md p-1.5 text-white/40 transition hover:bg-white/10 hover:text-sky-300"
           >
             <svg
               viewBox="0 0 24 24"
@@ -145,16 +143,17 @@ function StationCard({ station }: { station: RadarStation }) {
               strokeLinejoin="round"
               aria-hidden
             >
-              <path d="M7 17 17 7" />
-              <path d="M9 7h8v8" />
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
             </svg>
           </a>
         </div>
 
-        <div className="flex items-center justify-between gap-2 font-mono text-[10px] text-white/35">
+        <div className="flex items-center justify-between gap-2 font-mono text-[11px] text-white/45">
           <span className="truncate">{station.timezone}</span>
           <span className="shrink-0">
-            {fmtCoord(station.latitude)}, {fmtCoord(station.longitude)}
+            <span className="text-white/30">LAT</span> {fmtCoord(station.latitude)}{' '}
+            <span className="text-white/30">LON</span> {fmtCoord(station.longitude)}
           </span>
         </div>
       </div>
