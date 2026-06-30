@@ -7,6 +7,8 @@ export interface RadarStation {
   latitude: number;
   /** Station longitude (decimal degrees). */
   longitude: number;
+  /** IANA timezone of the station, e.g. "America/Chicago". */
+  timezone: string;
   /** Model run time (unix seconds) — when weather.com issued this forecast. */
   seriesTs: number;
   /** Valid time of the first frame in the GIF (unix seconds). */

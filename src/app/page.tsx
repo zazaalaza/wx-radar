@@ -5,7 +5,20 @@ import type { RadarIndex, RadarStation } from '@/lib/index/types';
 
 const API_PATH = '/api/radar';
 
-const fmtCoord = (n: number) => `${n >= 0 ? '' : '-'}${Math.abs(n).toFixed(3)}\u00B0`;
+const fmtCoord = (n: number) => `${Math.round(n)}\u00B0`;
+
+function formatLocalHM(unixSeconds: number, timeZone: string): string {
+  try {
+    return new Intl.DateTimeFormat('en-GB', {
+      timeZone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(new Date(unixSeconds * 1000));
+  } catch {
+    return new Date(unixSeconds * 1000).toISOString().slice(11, 16);
+  }
+}
 
 export default function Home() {
   const [data, setData] = useState<RadarIndex | null>(null);
@@ -39,7 +52,7 @@ export default function Home() {
           <div className="flex flex-col">
             <span className="text-lg font-bold tracking-[0.2em]">WX&middot;RADAR</span>
             <span className="text-[11px] uppercase tracking-[0.25em] text-white/40">
-              Global radar loops
+              Clouds + Precipitation Radar
             </span>
           </div>
           <a
@@ -76,7 +89,7 @@ export default function Home() {
           </p>
         )}
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {stations.map((s) => (
             <StationCard key={s.icao} station={s} />
           ))}
@@ -100,32 +113,50 @@ function StationCard({ station }: { station: RadarStation }) {
         <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/10" />
       </div>
 
-      <div className="flex flex-col gap-3 p-4">
-        <div className="flex items-baseline justify-between gap-2">
-          <h2 className="truncate text-base font-semibold tracking-tight">{station.location}</h2>
-          <span className="shrink-0 rounded-md bg-white/10 px-2 py-0.5 font-mono text-[11px] tracking-wider text-white/70">
-            {station.icao}
-          </span>
+      <div className="flex flex-col gap-1.5 p-4">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="flex items-baseline gap-2">
+              <h2 className="truncate text-base font-semibold tracking-tight">{station.location}</h2>
+              <span className="shrink-0 font-mono text-[11px] tracking-wider text-white/45">
+                {station.icao}
+              </span>
+            </div>
+            <p className="mt-0.5 font-mono text-[11px] text-white/45">
+              {formatLocalHM(station.startFrameUnixTimestamp, station.timezone)} &rarr;{' '}
+              {formatLocalHM(station.endFrameUnixTimestamp, station.timezone)}
+            </p>
+          </div>
+          <a
+            href={`${API_PATH}?code=${station.icao}`}
+            target="_blank"
+            rel="noreferrer"
+            title="View raw response"
+            aria-label="View raw response"
+            className="-mr-1 -mt-1 shrink-0 rounded-md p-1.5 text-white/40 transition hover:bg-white/10 hover:text-sky-300"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M7 17 17 7" />
+              <path d="M9 7h8v8" />
+            </svg>
+          </a>
         </div>
 
-        <div className="flex items-center gap-4 font-mono text-[11px] text-white/45">
-          <span>
-            <span className="text-white/30">LAT</span> {fmtCoord(station.latitude)}
-          </span>
-          <span>
-            <span className="text-white/30">LON</span> {fmtCoord(station.longitude)}
+        <div className="flex items-center justify-between gap-2 font-mono text-[10px] text-white/35">
+          <span className="truncate">{station.timezone}</span>
+          <span className="shrink-0">
+            {fmtCoord(station.latitude)}, {fmtCoord(station.longitude)}
           </span>
         </div>
-
-        <a
-          href={`${API_PATH}?code=${station.icao}`}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex w-fit items-center gap-1.5 text-xs font-medium text-sky-300/80 transition hover:text-sky-200"
-        >
-          View raw response
-          <span aria-hidden>&#8599;</span>
-        </a>
       </div>
     </div>
   );

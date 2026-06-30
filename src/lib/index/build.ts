@@ -43,6 +43,7 @@ export function updateIndexJson(seriesTs: number | null): RadarIndex {
       location: station.name,
       latitude: station.lat,
       longitude: station.lon,
+      timezone: station.timezone,
       seriesTs: pointer.ts,
       startFrameUnixTimestamp: pointer.ftsFirst,
       endFrameUnixTimestamp: pointer.ftsLast,
