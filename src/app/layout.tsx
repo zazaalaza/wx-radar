@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "WX-RADAR",
-  description: "WX-RADAR",
+  description: "WX-RADAR 6 Hour Forcast",
 };
 
 export default function RootLayout({

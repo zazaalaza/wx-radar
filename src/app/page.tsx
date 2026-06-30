@@ -78,7 +78,10 @@ export default function Home() {
       <header className="sticky top-0 z-10 border-b border-white/10 bg-background/70 backdrop-blur-md">
         <div className="mx-auto flex max-w-[1600px] items-center justify-between px-5 py-4 sm:px-8">
           <div className="flex flex-col">
-            <span className="text-lg font-bold tracking-[0.2em]">WX&middot;RADAR</span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-lg font-bold tracking-[0.2em]">WX&middot;RADAR</span>
+              <span className="text-xs font-normal tracking-wide text-white/35">6 Hour Forecast</span>
+            </div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-[11px] uppercase tracking-[0.25em] text-white/40">
                 Clouds + Precipitation Radar
