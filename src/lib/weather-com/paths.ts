@@ -25,6 +25,10 @@ export function latestJsonPath(folder: string, code: string): string {
   return path.join(stationDir(folder, code), 'latest.json');
 }
 
+export function historyJsonPath(folder: string, code: string): string {
+  return path.join(stationDir(folder, code), 'history.json');
+}
+
 export function rawCaptureDir(folder: string, code: string, date: string, datetime: string): string {
   return path.join(stationDir(folder, code), date, 'raw', datetime);
 }

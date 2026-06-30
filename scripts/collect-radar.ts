@@ -3,6 +3,7 @@ import { getErrorMessage } from '@/lib/shared/errors';
 import { fetchSatradSeries } from '@/lib/weather-com/series';
 import { captureStation, CaptureResult } from '@/lib/weather-com/capture';
 import { updateIndexJson } from '@/lib/index/build';
+import { updateStationHistory } from '@/lib/index/history';
 
 const TAG = '[WX-RADAR]';
 
@@ -51,6 +52,10 @@ async function main(): Promise<void> {
         console.error(`${TAG} FAILED ${result.icao}: ${result.message}`);
         break;
     }
+
+    // Rebuild from disk every tick so the manifest is self-healing and backfills
+    // any GIFs already present in the data repo (no-op for never-captured stations).
+    updateStationHistory(station);
   }
 
   updateIndexJson(series.ts);

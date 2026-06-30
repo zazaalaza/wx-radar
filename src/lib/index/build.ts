@@ -13,7 +13,7 @@ function dataRepo(): { owner: string; repo: string; branch: string } {
   return { owner, repo: name, branch };
 }
 
-function gifUrlFor(folder: string, code: string, date: string, datetime: string): string {
+export function gifUrlFor(folder: string, code: string, date: string, datetime: string): string {
   const { owner, repo, branch } = dataRepo();
   return `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/stations/${folder}/${code}/${date}/gif/${datetime}.gif`;
 }

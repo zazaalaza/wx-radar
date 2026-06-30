@@ -30,3 +30,21 @@ export interface RadarIndex {
   seriesTs: number | null;
   stations: RadarStation[];
 }
+
+/** A single archived capture in a station's history manifest. */
+export interface RadarCapture {
+  /** weather.com series model run (unix seconds) — when the forecast was issued. */
+  ts: number;
+  /** Compact UTC capture stamp, e.g. "20260630T133251Z". */
+  datetime: string;
+  /** Local date key (station timezone), e.g. "20260630". */
+  date: string;
+  gifUrl: string;
+}
+
+/** Per-station history manifest served by /api/radar/history. */
+export interface RadarHistory {
+  icao: string;
+  /** All captures for the station, sorted ascending by `ts`. */
+  captures: RadarCapture[];
+}
