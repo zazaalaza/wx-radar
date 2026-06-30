@@ -6,29 +6,24 @@ import type { RadarIndex, RadarStation } from '@/lib/index/types';
 const API_PATH = '/api/radar';
 const GITHUB_REPO_URL = 'https://github.com/zazaalaza/wx-radar';
 
-/** Cron schedule: every 30 min at :00/:30 UTC; job needs a few min to publish. */
+/** Cron-job.org triggers the collector every 30 min. */
 const CRON_INTERVAL_MS = 30 * 60 * 1000;
-const JOB_BUFFER_MS = 5 * 60 * 1000;
 
 const fmtCoord = (n: number) => `${Math.round(n)}\u00B0`;
 
 /**
  * Estimate minutes until the next radar update.
  *
- * Boundaries fall on :00/:30 UTC. If the latest data (updatedAt) already landed
- * after the most recent boundary, this cycle is done -> aim at the next boundary;
- * otherwise this cycle is still running -> aim at the current boundary. A buffer
- * accounts for the job taking a few minutes to publish.
+ * The collector runs on a fixed 30-min cadence, so the next publish is simply
+ * the last update plus one interval (job duration cancels out: trigger times are
+ * 30 min apart regardless of how long each run takes). If that moment has passed
+ * the next run is imminent.
  */
 function nextUpdateLabel(updatedAtIso: string, now: number): string | null {
   const updatedAt = new Date(updatedAtIso).getTime();
   if (Number.isNaN(updatedAt)) return null;
 
-  const lastBoundary = Math.floor(now / CRON_INTERVAL_MS) * CRON_INTERVAL_MS;
-  const nextBoundary = lastBoundary + CRON_INTERVAL_MS;
-  const target = (updatedAt >= lastBoundary ? nextBoundary : lastBoundary) + JOB_BUFFER_MS;
-
-  const minutes = Math.round((target - now) / 60000);
+  const minutes = Math.round((updatedAt + CRON_INTERVAL_MS - now) / 60000);
   if (minutes <= 0) return 'any moment now';
   return `~${minutes} min`;
 }
