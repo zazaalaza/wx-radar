@@ -5,14 +5,7 @@ import type { RadarIndex, RadarStation } from '@/lib/index/types';
 
 const API_PATH = '/api/radar';
 
-function formatUtcTime(unixSeconds: number): string {
-  return `${new Date(unixSeconds * 1000).toISOString().slice(11, 16)}Z`;
-}
-
-function formatUpdated(iso: string): string {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toUTCString().replace('GMT', 'UTC');
-}
+const fmtCoord = (n: number) => `${n >= 0 ? '' : '-'}${Math.abs(n).toFixed(3)}\u00B0`;
 
 export default function Home() {
   const [data, setData] = useState<RadarIndex | null>(null);
@@ -25,12 +18,8 @@ export default function Home() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return (await res.json()) as RadarIndex;
       })
-      .then((json) => {
-        if (!cancelled) setData(json);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
-      });
+      .then((json) => !cancelled && setData(json))
+      .catch((err) => !cancelled && setError(err instanceof Error ? err.message : String(err)));
     return () => {
       cancelled = true;
     };
@@ -39,76 +28,105 @@ export default function Home() {
   const stations = data?.stations ?? [];
 
   return (
-    <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 sm:py-12">
-      <header className="mb-8 flex flex-col gap-2 border-b border-black/10 pb-6 dark:border-white/10">
-        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">WX-RADAR</h1>
-        <p className="text-sm text-black/60 dark:text-white/60">
-          Latest weather radar loops, updated every 30 minutes.
-        </p>
-        <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-black/50 dark:text-white/50">
+    <div className="relative min-h-screen">
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-x-0 top-0 h-[420px] bg-[radial-gradient(ellipse_at_top,_rgba(56,189,248,0.10),_transparent_60%)]"
+      />
+
+      <header className="sticky top-0 z-10 border-b border-white/10 bg-background/70 backdrop-blur-md">
+        <div className="mx-auto flex max-w-[1600px] items-center justify-between px-5 py-4 sm:px-8">
+          <div className="flex flex-col">
+            <span className="text-lg font-bold tracking-[0.2em]">WX&middot;RADAR</span>
+            <span className="text-[11px] uppercase tracking-[0.25em] text-white/40">
+              Global radar loops
+            </span>
+          </div>
           <a
             href={API_PATH}
-            className="font-mono underline decoration-dotted underline-offset-4 hover:text-black dark:hover:text-white"
+            target="_blank"
+            rel="noreferrer"
+            className="group inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-medium uppercase tracking-[0.15em] text-white/80 transition hover:border-white/40 hover:bg-white/10 hover:text-white"
           >
-            GET {API_PATH}
-          </a>
-          {data && (
-            <span>
-              {stations.length} stations &middot; updated {formatUpdated(data.updatedAt)}
+            All stations
+            <span className="text-white/40 transition group-hover:translate-x-0.5 group-hover:text-white">
+              &#8599;
             </span>
-          )}
+          </a>
         </div>
       </header>
 
-      {error && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300">
-          Failed to load radar data: {error}
+      <main className="mx-auto max-w-[1600px] px-5 py-8 sm:px-8 sm:py-10">
+        {error && (
+          <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            Failed to load radar data: {error}
+          </div>
+        )}
+
+        {!error && !data && (
+          <div className="flex items-center gap-3 text-sm text-white/40">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-sky-400" />
+            Loading radar data…
+          </div>
+        )}
+
+        {data && stations.length === 0 && (
+          <p className="text-sm text-white/40">
+            No captures yet — the collector will populate this on its next run.
+          </p>
+        )}
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+          {stations.map((s) => (
+            <StationCard key={s.icao} station={s} />
+          ))}
         </div>
-      )}
-
-      {!error && !data && (
-        <p className="text-sm text-black/50 dark:text-white/50">Loading radar data…</p>
-      )}
-
-      {data && stations.length === 0 && (
-        <p className="text-sm text-black/50 dark:text-white/50">
-          No captures yet. The collector will populate this once it runs.
-        </p>
-      )}
-
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {stations.map((s) => (
-          <StationCard key={s.icao} station={s} />
-        ))}
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }
 
 function StationCard({ station }: { station: RadarStation }) {
   return (
-    <a
-      href={`${API_PATH}?code=${station.icao}`}
-      className="group flex flex-col overflow-hidden rounded-xl border border-black/10 bg-black/[0.02] transition hover:border-black/30 hover:shadow-lg dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-white/30"
-    >
-      <div className="relative aspect-[568/320] w-full bg-black">
+    <div className="group overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02] transition duration-200 hover:-translate-y-1 hover:border-white/25 hover:bg-white/[0.04] hover:shadow-[0_12px_40px_-12px_rgba(56,189,248,0.25)]">
+      <div className="relative aspect-[568/320] w-full overflow-hidden bg-black">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={station.gifUrl}
           alt={`${station.location} radar`}
           loading="lazy"
-          className="h-full w-full object-cover"
+          className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
         />
+        <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/10" />
       </div>
-      <div className="flex items-baseline justify-between gap-2 px-3 pt-3">
-        <span className="truncate text-base font-semibold tracking-tight">{station.location}</span>
-        <span className="font-mono text-xs text-black/50 dark:text-white/50">{station.icao}</span>
+
+      <div className="flex flex-col gap-3 p-4">
+        <div className="flex items-baseline justify-between gap-2">
+          <h2 className="truncate text-base font-semibold tracking-tight">{station.location}</h2>
+          <span className="shrink-0 rounded-md bg-white/10 px-2 py-0.5 font-mono text-[11px] tracking-wider text-white/70">
+            {station.icao}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-4 font-mono text-[11px] text-white/45">
+          <span>
+            <span className="text-white/30">LAT</span> {fmtCoord(station.latitude)}
+          </span>
+          <span>
+            <span className="text-white/30">LON</span> {fmtCoord(station.longitude)}
+          </span>
+        </div>
+
+        <a
+          href={`${API_PATH}?code=${station.icao}`}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex w-fit items-center gap-1.5 text-xs font-medium text-sky-300/80 transition hover:text-sky-200"
+        >
+          View raw response
+          <span aria-hidden>&#8599;</span>
+        </a>
       </div>
-      <div className="px-3 pb-3 pt-1 font-mono text-[11px] text-black/45 dark:text-white/45">
-        {formatUtcTime(station.startFrameUnixTimestamp)} → {formatUtcTime(station.endFrameUnixTimestamp)}
-        {' · '}
-        {station.frameCount} frames
-      </div>
-    </a>
+    </div>
   );
 }
