@@ -5,7 +5,32 @@ import type { RadarIndex, RadarStation } from '@/lib/index/types';
 
 const API_PATH = '/api/radar';
 
+/** Cron schedule: every 30 min at :00/:30 UTC; job needs a few min to publish. */
+const CRON_INTERVAL_MS = 30 * 60 * 1000;
+const JOB_BUFFER_MS = 5 * 60 * 1000;
+
 const fmtCoord = (n: number) => `${Math.round(n)}\u00B0`;
+
+/**
+ * Estimate minutes until the next radar update.
+ *
+ * Boundaries fall on :00/:30 UTC. If the latest data (updatedAt) already landed
+ * after the most recent boundary, this cycle is done -> aim at the next boundary;
+ * otherwise this cycle is still running -> aim at the current boundary. A buffer
+ * accounts for the job taking a few minutes to publish.
+ */
+function nextUpdateLabel(updatedAtIso: string, now: number): string | null {
+  const updatedAt = new Date(updatedAtIso).getTime();
+  if (Number.isNaN(updatedAt)) return null;
+
+  const lastBoundary = Math.floor(now / CRON_INTERVAL_MS) * CRON_INTERVAL_MS;
+  const nextBoundary = lastBoundary + CRON_INTERVAL_MS;
+  const target = (updatedAt >= lastBoundary ? nextBoundary : lastBoundary) + JOB_BUFFER_MS;
+
+  const minutes = Math.round((target - now) / 60000);
+  if (minutes <= 0) return 'any moment now';
+  return `~${minutes} min`;
+}
 
 function formatLocalHM(unixSeconds: number, timeZone: string): string {
   try {
@@ -23,6 +48,7 @@ function formatLocalHM(unixSeconds: number, timeZone: string): string {
 export default function Home() {
   const [data, setData] = useState<RadarIndex | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [now, setNow] = useState<number>(() => Date.now());
 
   useEffect(() => {
     let cancelled = false;
@@ -38,7 +64,13 @@ export default function Home() {
     };
   }, []);
 
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
   const stations = data?.stations ?? [];
+  const countdown = data?.updatedAt ? nextUpdateLabel(data.updatedAt, now) : null;
 
   return (
     <div className="relative min-h-screen">
@@ -51,9 +83,17 @@ export default function Home() {
         <div className="mx-auto flex max-w-[1600px] items-center justify-between px-5 py-4 sm:px-8">
           <div className="flex flex-col">
             <span className="text-lg font-bold tracking-[0.2em]">WX&middot;RADAR</span>
-            <span className="text-[11px] uppercase tracking-[0.25em] text-white/40">
-              Clouds + Precipitation Radar
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] uppercase tracking-[0.25em] text-white/40">
+                Clouds + Precipitation Radar
+              </span>
+              {countdown && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-400/20 bg-sky-400/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.15em] text-sky-300/90">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-sky-400" />
+                  Next update {countdown}
+                </span>
+              )}
+            </div>
           </div>
           <a
             href={API_PATH}
