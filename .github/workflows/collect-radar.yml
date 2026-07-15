@@ -97,9 +97,10 @@ jobs:
           git config user.email "wx-radar-bot@users.noreply.github.com"
 
           # New GIFs are outside the JSON-only sparse checkout; widen scope for this commit only.
-          while IFS= read -r -d '' gif; do
-            git sparse-checkout add --no-cone "$gif"
-          done < <(find stations -path '*/gif/*.gif' -type f -print0)
+          mapfile -t NEW_GIFS < <(find stations -path '*/gif/*.gif' -type f)
+          if [ ${#NEW_GIFS[@]} -gt 0 ]; then
+            printf '%s\n' "${NEW_GIFS[@]}" | git sparse-checkout add --stdin
+          fi
 
           git add -A
           if git diff --staged --quiet; then
