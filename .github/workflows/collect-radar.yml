@@ -95,6 +95,12 @@ jobs:
           set -euo pipefail
           git config user.name "wx-radar-bot"
           git config user.email "wx-radar-bot@users.noreply.github.com"
+
+          # New GIFs are outside the JSON-only sparse checkout; widen scope for this commit only.
+          while IFS= read -r -d '' gif; do
+            git sparse-checkout add --no-cone "$gif"
+          done < <(find stations -path '*/gif/*.gif' -type f -print0)
+
           git add -A
           if git diff --staged --quiet; then
             echo "No changes to commit"
@@ -102,6 +108,9 @@ jobs:
             git commit -m "radar: $(date -u +%Y-%m-%dT%H:%MZ)"
             git push
           fi
+
+          # Back to JSON-only so the next sync does not pull historical GIF blobs.
+          git sparse-checkout set index.json 'stations/*/*/latest.json' 'stations/*/*/history.json' 'stations/*/*/*/meta/'
 
           # Working tree only needs JSON between runs; GIFs are served from GitHub.
           find stations -path '*/gif/*.gif' -delete 2>/dev/null || true
