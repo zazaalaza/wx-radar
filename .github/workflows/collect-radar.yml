@@ -7,6 +7,15 @@ concurrency:
   group: collect-radar
   cancel-in-progress: false
 
+env:
+  DATA_CACHE_KEY: wx-radar-data-sparse-blobless-v1
+  # JSON manifests only — the collector never reads historical GIFs.
+  DATA_SPARSE_PATHS: |
+    index.json
+    stations/*/*/latest.json
+    stations/*/*/history.json
+    stations/*/*/*/meta/
+
 jobs:
   collect:
     runs-on: ubuntu-latest
@@ -16,12 +25,49 @@ jobs:
       - name: Checkout wx-radar (collector code)
         uses: actions/checkout@v4
 
-      - name: Checkout wx-radar-data
+      - name: Restore wx-radar-data cache
+        id: data-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: data
+          key: ${{ env.DATA_CACHE_KEY }}
+          restore-keys: |
+            ${{ env.DATA_CACHE_KEY }}
+
+      - name: Checkout wx-radar-data (sparse, cache miss)
+        if: steps.data-cache.outputs.cache-hit != 'true'
         uses: actions/checkout@v4
         with:
           repository: ${{ vars.DATA_REPO }}
           token: ${{ secrets.DATA_REPO_TOKEN }}
           path: data
+          fetch-depth: 1
+          sparse-checkout: ${{ env.DATA_SPARSE_PATHS }}
+          sparse-checkout-cone-mode: false
+
+      - name: Sync wx-radar-data (cache hit)
+        if: steps.data-cache.outputs.cache-hit == 'true'
+        env:
+          DATA_REPO: ${{ vars.DATA_REPO }}
+          DATA_REPO_TOKEN: ${{ secrets.DATA_REPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          cd data
+
+          git remote set-url origin "https://x-access-token:${DATA_REPO_TOKEN}@github.com/${DATA_REPO}.git"
+
+          # Blobless fetch: commit/tree metadata only, no historical GIF blobs.
+          git fetch --filter=blob:none --depth=1 origin main
+          git checkout main
+          git reset --hard origin/main
+
+          git sparse-checkout init --no-cone
+          git sparse-checkout set index.json 'stations/*/*/latest.json' 'stations/*/*/history.json' 'stations/*/*/*/meta/'
+          git sparse-checkout reapply
+
+          # Drop objects from prior runs; remote still has the full archive.
+          git reflog expire --expire=now --all
+          git gc --prune=now
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -46,6 +92,7 @@ jobs:
       - name: Commit and push data
         working-directory: data
         run: |
+          set -euo pipefail
           git config user.name "wx-radar-bot"
           git config user.email "wx-radar-bot@users.noreply.github.com"
           git add -A
@@ -55,3 +102,16 @@ jobs:
             git commit -m "radar: $(date -u +%Y-%m-%dT%H:%MZ)"
             git push
           fi
+
+          # Working tree only needs JSON between runs; GIFs are served from GitHub.
+          find stations -path '*/gif/*.gif' -delete 2>/dev/null || true
+
+          git reflog expire --expire=now --all
+          git gc --prune=now
+
+      - name: Save wx-radar-data cache
+        if: success()
+        uses: actions/cache/save@v4
+        with:
+          path: data
+          key: ${{ env.DATA_CACHE_KEY }}
