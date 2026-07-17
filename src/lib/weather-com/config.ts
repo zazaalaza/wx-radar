@@ -45,3 +45,9 @@ export const FRAME_CONCURRENCY = 4;
 
 /** Small delay between frame-download batches (ms). */
 export const FRAME_BATCH_DELAY_MS = 100;
+
+/** Attempts per frame fetch before treating the download as failed. */
+export const FRAME_FETCH_RETRIES = 3;
+
+/** Base backoff between frame fetch retries (ms); scaled by attempt number. */
+export const FRAME_RETRY_DELAY_MS = 500;

@@ -3,7 +3,7 @@ import path from 'path';
 import { Station } from '@/lib/weather-stations/stations';
 import { getErrorMessage } from '@/lib/shared/errors';
 import { toDateKey } from '@/lib/shared/time-utils';
-import { API_HOST, FRAME_BATCH_DELAY_MS, FRAME_CONCURRENCY, GIF_TOTAL_MS, IMAGE_HEIGHT, IMAGE_WIDTH, LANGUAGE, LOD, MAP_STYLE, PRODUCT, REQUEST_HEADERS, SUN_V3_API_KEY } from '@/lib/weather-com/config';
+import { API_HOST, FRAME_BATCH_DELAY_MS, FRAME_CONCURRENCY, FRAME_FETCH_RETRIES, FRAME_RETRY_DELAY_MS, GIF_TOTAL_MS, IMAGE_HEIGHT, IMAGE_WIDTH, LANGUAGE, LOD, MAP_STYLE, PRODUCT, REQUEST_HEADERS, SUN_V3_API_KEY } from '@/lib/weather-com/config';
 import { weatherComGeocode } from '@/lib/weather-com/geocode';
 import { buildGif } from '@/lib/weather-com/gif';
 import { frameFileName, framesDir as framesDirFor, gifPath as gifPathFor, latestJsonPath, metaJsonPath, rawCaptureDir } from '@/lib/weather-com/paths';
@@ -74,7 +74,9 @@ function frameUrl(geocode: string, ts: number, fts: number): string {
   return `https://${API_HOST}/v2/maps/dynamic?${params.toString()}`;
 }
 
-async function downloadFrame(url: string, destPath: string): Promise<void> {
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+async function fetchFrameOnce(url: string, destPath: string): Promise<void> {
   const res = await fetch(url, {
     headers: REQUEST_HEADERS,
     signal: AbortSignal.timeout(20_000),
@@ -88,14 +90,77 @@ async function downloadFrame(url: string, destPath: string): Promise<void> {
   fs.writeFileSync(destPath, buffer);
 }
 
-const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+async function downloadFrame(url: string, destPath: string): Promise<void> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= FRAME_FETCH_RETRIES; attempt++) {
+    try {
+      await fetchFrameOnce(url, destPath);
+      return;
+    } catch (err) {
+      lastError = err;
+      if (attempt < FRAME_FETCH_RETRIES) {
+        await sleep(FRAME_RETRY_DELAY_MS * attempt);
+      }
+    }
+  }
+  throw lastError;
+}
+
+function missingFrameIndices(frameDir: string, frameCount: number): number[] {
+  return Array.from({ length: frameCount }, (_, index) => index).filter(
+    (index) => !fs.existsSync(path.join(frameDir, frameFileName(index))),
+  );
+}
+
+async function downloadFrameAtIndex(
+  frameDir: string,
+  geocode: string,
+  seriesTs: number,
+  fts: number,
+  index: number,
+): Promise<void> {
+  const fileName = frameFileName(index);
+  await downloadFrame(frameUrl(geocode, seriesTs, fts), path.join(frameDir, fileName));
+}
+
+/** Re-download any frames missing after the batched pass (partial batch failures). */
+async function ensureAllFramesDownloaded(
+  frameDir: string,
+  frameCount: number,
+  series: SatradSeries,
+  geocode: string,
+): Promise<void> {
+  let missing = missingFrameIndices(frameDir, frameCount);
+  if (missing.length === 0) return;
+
+  for (const index of missing) {
+    await downloadFrameAtIndex(frameDir, geocode, series.ts, series.fts[index], index);
+  }
+
+  missing = missingFrameIndices(frameDir, frameCount);
+  if (missing.length > 0) {
+    const names = missing.map((index) => frameFileName(index)).join(', ');
+    throw new Error(`missing frames after refill: ${names}`);
+  }
+}
+
+/** Remove transient frame downloads for a capture attempt. */
+function removeRawCaptureDir(folder: string, code: string, date: string, datetime: string): void {
+  const rawDir = path.dirname(rawCaptureDir(folder, code, date, datetime));
+  try {
+    fs.rmSync(rawDir, { recursive: true, force: true });
+  } catch {
+    // Best-effort; raw frames must not leak into the data repo commit.
+  }
+}
 
 /**
  * Fetch + persist the satradFcst capture for one station, unless its latest.json
  * already matches the current series (in which case nothing is downloaded).
  *
  * On success the raw JPG frames are deleted once the GIF is built — wx-radar-data
- * only retains GIFs, meta.json and latest.json.
+ * only retains GIFs, meta.json and latest.json. Raw frames are also removed on
+ * failure so partial captures do not leak into the data repo commit.
  */
 export async function captureStation(station: Station, series: SatradSeries): Promise<CaptureResult> {
   const { folder, code } = station;
@@ -111,27 +176,34 @@ export async function captureStation(station: Station, series: SatradSeries): Pr
   const date = toDateKey(Math.floor(now.getTime() / 1000), station.timezone);
   const geocode = weatherComGeocode(station.lat, station.lon);
   const frameCount = series.fts.length;
+  let rawStarted = false;
 
   try {
     const frameDir = framesDirFor(folder, code, date, datetime);
     fs.mkdirSync(frameDir, { recursive: true });
+    rawStarted = true;
 
     const frameMeta: { index: number; fts: number; file: string }[] = [];
 
     // Download frames in bounded-concurrency batches (oldest -> newest).
     for (let i = 0; i < frameCount; i += FRAME_CONCURRENCY) {
       const batch = series.fts.slice(i, i + FRAME_CONCURRENCY);
-      await Promise.all(
+      await Promise.allSettled(
         batch.map(async (fts, j) => {
           const index = i + j;
-          const fileName = frameFileName(index);
-          await downloadFrame(frameUrl(geocode, series.ts, fts), path.join(frameDir, fileName));
-          frameMeta[index] = { index, fts, file: `${PRODUCT}/${fileName}` };
+          await downloadFrameAtIndex(frameDir, geocode, series.ts, fts, index);
         }),
       );
       if (i + FRAME_CONCURRENCY < frameCount) {
         await sleep(FRAME_BATCH_DELAY_MS);
       }
+    }
+
+    await ensureAllFramesDownloaded(frameDir, frameCount, series, geocode);
+
+    for (let index = 0; index < frameCount; index++) {
+      const fileName = frameFileName(index);
+      frameMeta[index] = { index, fts: series.fts[index], file: `${PRODUCT}/${fileName}` };
     }
 
     const gifFsPath = gifPathFor(folder, code, date, datetime);
@@ -168,10 +240,6 @@ export async function captureStation(station: Station, series: SatradSeries): Pr
 
     await buildGif(frameDir, gifFsPath, frameCount);
 
-    // Raw frames are transient — keep the repo to GIFs + JSON only. Remove the
-    // whole date/raw tree so no empty directories are committed.
-    fs.rmSync(path.dirname(rawCaptureDir(folder, code, date, datetime)), { recursive: true, force: true });
-
     const newPointer: LatestPointer = {
       ts: series.ts,
       ftsFirst: series.fts[0],
@@ -187,5 +255,9 @@ export async function captureStation(station: Station, series: SatradSeries): Pr
     return { ...base, status: 'SUCCESS', datetime, frameCount };
   } catch (err) {
     return { ...base, status: 'FAILED', datetime, message: getErrorMessage(err) };
+  } finally {
+    if (rawStarted) {
+      removeRawCaptureDir(folder, code, date, datetime);
+    }
   }
 }
