@@ -13,6 +13,8 @@ import { PRODUCT } from '@/lib/weather-com/config';
  *         satradFcst/frame.00.jpg, frame.01.jpg, ...   (transient; deleted after GIF)
  *       gif/[datetime].gif
  *
+ * Date dirs older than HISTORY_RETENTION_DAYS are pruned each collector tick.
+ *
  * [folder] = station.folder, [code] = station.code (ICAO),
  * [date]   = local YYYYMMDD, [datetime] = UTC compact YYYYMMDDTHHMMSSZ.
  */

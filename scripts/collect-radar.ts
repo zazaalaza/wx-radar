@@ -4,6 +4,7 @@ import { fetchSatradSeries } from '@/lib/weather-com/series';
 import { captureStation, CaptureResult } from '@/lib/weather-com/capture';
 import { updateIndexJson } from '@/lib/index/build';
 import { updateStationHistory } from '@/lib/index/history';
+import { HISTORY_RETENTION_DAYS, pruneStationHistory } from '@/lib/index/prune';
 
 const TAG = '[WX-RADAR]';
 
@@ -53,8 +54,14 @@ async function main(): Promise<void> {
         break;
     }
 
-    // Rebuild from disk every tick so the manifest is self-healing and backfills
-    // any GIFs already present in the data repo (no-op for never-captured stations).
+    // Drop date dirs outside the retention window (gif/meta/raw), then rebuild
+    // history.json from whatever remains so the manifest stays self-healing.
+    const pruned = pruneStationHistory(station);
+    if (pruned.length > 0) {
+      console.log(
+        `${TAG} PRUNED ${result.icao} (>${HISTORY_RETENTION_DAYS}d) dates=${pruned.join(',')}`,
+      );
+    }
     updateStationHistory(station);
   }
 

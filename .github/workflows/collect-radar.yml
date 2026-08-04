@@ -96,6 +96,24 @@ jobs:
           git config user.name "wx-radar-bot"
           git config user.email "wx-radar-bot@users.noreply.github.com"
 
+          # Historical GIFs are outside the sparse checkout, so filesystem prune
+          # alone cannot stage their deletion. If the collector removed a
+          # YYYYMMDD dir, drop every still-tracked path under it from the index.
+          mapfile -t STALE < <(
+            git ls-files -z -- 'stations/' | tr '\0' '\n' | while read -r f; do
+              # stations/<folder>/<code>/<YYYYMMDD>/...
+              date_dir="$(echo "$f" | cut -d/ -f1-4)"
+              base="$(basename "$date_dir")"
+              [[ "$base" =~ ^[0-9]{8}$ ]] || continue
+              [[ -e "$date_dir" ]] && continue
+              echo "$f"
+            done
+          )
+          if [ ${#STALE[@]} -gt 0 ]; then
+            echo "Pruning ${#STALE[@]} tracked file(s) under removed date dirs"
+            printf '%s\0' "${STALE[@]}" | xargs -0 git rm -f --ignore-unmatch --cached
+          fi
+
           # New GIFs are outside the JSON-only sparse checkout; widen scope for this commit only.
           mapfile -t NEW_GIFS < <(find stations -path '*/gif/*.gif' -type f)
           if [ ${#NEW_GIFS[@]} -gt 0 ]; then
