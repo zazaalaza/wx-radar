@@ -7,7 +7,7 @@ import { Station } from '@/lib/weather-stations/stations';
 const DATE_DIR = /^\d{8}$/;
 
 /** Keep this many trailing calendar days of gif/meta/raw per station. */
-export const HISTORY_RETENTION_DAYS = 10;
+export const HISTORY_RETENTION_DAYS = 3;
 
 /**
  * Delete on-disk date directories older than the retention window.
