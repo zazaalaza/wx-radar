@@ -14,7 +14,9 @@ export const HISTORY_RETENTION_DAYS = 3;
  *
  * Removes `gif/`, `meta/`, and any leftover `raw/` under each stale
  * `YYYYMMDD` dir. Safe to call every tick — history.json is rebuilt from
- * whatever remains on disk afterward.
+ * whatever remains on disk afterward. The collector workflow then replaces
+ * `main` with a single orphan commit so deleted GIFs do not stay in git
+ * history.
  */
 export function pruneStationHistory(
   station: Station,

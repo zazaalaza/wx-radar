@@ -14,6 +14,7 @@ import { PRODUCT } from '@/lib/weather-com/config';
  *       gif/[datetime].gif
  *
  * Date dirs older than HISTORY_RETENTION_DAYS are pruned each collector tick.
+ * Git history is not retained: the collector force-pushes a one-commit snapshot.
  *
  * [folder] = station.folder, [code] = station.code (ICAO),
  * [date]   = local YYYYMMDD, [datetime] = UTC compact YYYYMMDDTHHMMSSZ.

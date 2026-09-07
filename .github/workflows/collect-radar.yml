@@ -8,13 +8,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  DATA_CACHE_KEY: wx-radar-data-sparse-blobless-v1
-  # JSON manifests only — the collector never reads historical GIFs.
-  DATA_SPARSE_PATHS: |
-    index.json
-    stations/*/*/latest.json
-    stations/*/*/history.json
-    stations/*/*/*/meta/
+  # Bump this if the cache ever holds a full git history again.
+  DATA_CACHE_KEY: wx-radar-data-snapshot-v1
 
 jobs:
   collect:
@@ -34,7 +29,7 @@ jobs:
           restore-keys: |
             ${{ env.DATA_CACHE_KEY }}
 
-      - name: Checkout wx-radar-data (sparse, cache miss)
+      - name: Checkout wx-radar-data
         if: steps.data-cache.outputs.cache-hit != 'true'
         uses: actions/checkout@v4
         with:
@@ -42,8 +37,6 @@ jobs:
           token: ${{ secrets.DATA_REPO_TOKEN }}
           path: data
           fetch-depth: 1
-          sparse-checkout: ${{ env.DATA_SPARSE_PATHS }}
-          sparse-checkout-cone-mode: false
 
       - name: Sync wx-radar-data (cache hit)
         if: steps.data-cache.outputs.cache-hit == 'true'
@@ -53,21 +46,12 @@ jobs:
         run: |
           set -euo pipefail
           cd data
-
           git remote set-url origin "https://x-access-token:${DATA_REPO_TOKEN}@github.com/${DATA_REPO}.git"
-
-          # Blobless fetch: commit/tree metadata only, no historical GIF blobs.
-          git fetch --filter=blob:none --depth=1 origin main
-          git checkout main
+          git fetch --depth=1 origin main
+          git checkout --force -B main origin/main
           git reset --hard origin/main
-
-          git sparse-checkout init --no-cone
-          git sparse-checkout set index.json 'stations/*/*/latest.json' 'stations/*/*/history.json' 'stations/*/*/*/meta/'
-          git sparse-checkout reapply
-
-          # Drop objects from prior runs; remote still has the full archive.
-          git reflog expire --expire=now --all
-          git gc --prune=now
+          git clean -fdx
+          git sparse-checkout disable 2>/dev/null || true
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -89,50 +73,31 @@ jobs:
           WEATHER_COM_API_KEY: ${{ secrets.WEATHER_COM_API_KEY }}
         run: npm run collect:radar
 
-      - name: Commit and push data
+      - name: Publish 3-day snapshot (replace git history)
         working-directory: data
+        env:
+          DATA_REPO: ${{ vars.DATA_REPO }}
+          DATA_REPO_TOKEN: ${{ secrets.DATA_REPO_TOKEN }}
         run: |
           set -euo pipefail
           git config user.name "wx-radar-bot"
           git config user.email "wx-radar-bot@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${DATA_REPO_TOKEN}@github.com/${DATA_REPO}.git"
+          git sparse-checkout disable 2>/dev/null || true
 
-          # Historical GIFs are outside the sparse checkout, so filesystem prune
-          # alone cannot stage their deletion. If the collector removed a
-          # YYYYMMDD dir, drop every still-tracked path under it from the index.
-          mapfile -t STALE < <(
-            git ls-files -z -- 'stations/' | tr '\0' '\n' | while read -r f; do
-              # stations/<folder>/<code>/<YYYYMMDD>/...
-              date_dir="$(echo "$f" | cut -d/ -f1-4)"
-              base="$(basename "$date_dir")"
-              [[ "$base" =~ ^[0-9]{8}$ ]] || continue
-              [[ -e "$date_dir" ]] && continue
-              echo "$f"
-            done
-          )
-          if [ ${#STALE[@]} -gt 0 ]; then
-            echo "Pruning ${#STALE[@]} tracked file(s) under removed date dirs"
-            printf '%s\0' "${STALE[@]}" | xargs -0 git rm -f --ignore-unmatch --cached
-          fi
-
-          # New GIFs are outside the JSON-only sparse checkout; widen scope for this commit only.
-          mapfile -t NEW_GIFS < <(find stations -path '*/gif/*.gif' -type f)
-          if [ ${#NEW_GIFS[@]} -gt 0 ]; then
-            printf '%s\n' "${NEW_GIFS[@]}" | git sparse-checkout add --stdin
-          fi
-
+          # GIFs live in the worktree, so disk prune stages as real deletions.
           git add -A
+
           if git diff --staged --quiet; then
-            echo "No changes to commit"
+            echo "No changes to publish"
           else
+            # One commit, no parents — old GIF blobs never accumulate on main.
+            git checkout --orphan "snapshot-$(date -u +%Y%m%dT%H%M%SZ)"
+            git add -A
             git commit -m "radar: $(date -u +%Y-%m-%dT%H:%MZ)"
-            git push
+            git branch -M main
+            git push --force origin main
           fi
-
-          # Back to JSON-only so the next sync does not pull historical GIF blobs.
-          git sparse-checkout set index.json 'stations/*/*/latest.json' 'stations/*/*/history.json' 'stations/*/*/*/meta/'
-
-          # Working tree only needs JSON between runs; GIFs are served from GitHub.
-          find stations -path '*/gif/*.gif' -delete 2>/dev/null || true
 
           git reflog expire --expire=now --all
           git gc --prune=now
